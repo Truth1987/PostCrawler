@@ -7,10 +7,11 @@ import getpass
 sys.path.append('../PTTCrawlerLibrary')
 import PTT
 import os
-print('Welcome to PostCrawler v 1.0.17.0703')
+print('Welcome to PostCrawler v 1.0.17.0718')
 
-# If you want to automatically login define Account.txt
-# {"ID":"YourID", "Password":"YourPW"}
+# 如果你想要自動登入，建立 Account.txt
+# 然後裡面填上 {"ID":"YourID", "Password":"YourPW"}
+
 try:
     with open('Account.txt', encoding = 'utf-8-sig') as AccountFile:
         Account = json.load(AccountFile)
@@ -18,79 +19,48 @@ try:
         Password = Account['Password']
     print('Auto ID password mode')
 except FileNotFoundError:
-    ID = input('Input ID: ')
-    Password = getpass.getpass('Input password: ')
+    ID = input('輸入使用者帳號: ')
+    Password = getpass.getpass('輸入密碼: ')
 Board = sys.argv[1]
 
 print(Board + ' Post Crawler')
-StartIndex = int(input('Input start index: '))
-
-
-Retry = True
 
 if not os.path.exists(Board):
     os.makedirs(Board)
 
-PTTCrawler = PTT.Crawler(ID, Password, False)
+PTTCrawler = PTT.Crawler(ID, Password, True)
 
-def SavePost(Board, Index):
-    ErrorCode, Post = PTTCrawler.getPostInfoByIndex(Board, Index)
-    if ErrorCode == PTTCrawler.PostDeleted:
-        PTTCrawler.Log(str(Index) + ' has been deleted')
-        return False
-    if ErrorCode == PTTCrawler.WebFormatError:
-        PTTCrawler.Log(str(Index) + ' Web structure error')
-        return False
-    if ErrorCode != PTTCrawler.Success:
-        PTTCrawler.Log(str(Index) + ' getPostInfo ErrorCode: ' + str(ErrorCode))
-        return False
-    if Post == None:
-        PTTCrawler.Log(str(Index) + ' getPostInfo unknow error')
-        return False
-    if not os.path.exists(Board + '/' + str(Index)):
-        os.makedirs(Board + '/' + str(Index))
+def PostCallBack(Post):
     
-    f = open(Board + '/' + str(Index) + '/Author.txt', 'w')
-    Author = Post.getPostAuthor()
-    Author = Author[:Author.find(' (')]
-    f.write(Author)
-    f.close()
-    
-    f = open(Board + '/' + str(Index) + '/Content.txt', 'w')
-    f.write(Post.getTitle())
+    try:
+        os.makedirs(Post.getPostBoard() + '/' + Post.getPostID())
+    except FileExistsError:
+        pass
+        
+    f = open(Post.getPostBoard() + '/' + Post.getPostID() + '/Content.txt', 'w', encoding='utf-8-sig')
+    f.write(Post.getTitle() + '\r\n')
     f.write(Post.getPostContent())
     f.close()
     
-    f = open(Board + '/' + str(Index) + '/PushList.txt', 'w')
+    f = open(Post.getPostBoard() + '/' + Post.getPostID() + '/PushList.txt', 'w', encoding='utf-8-sig')
     for Push in Post.getPushList():
-        f.write(str(Push.getPushType()) + ' ' + Push.getPushContent() + '\r')
+        f.write(str(Push.getPushType()) + ' ' + Push.getPushContent() + '\r\n')
     f.close()
     
-    PTTCrawler.Log(Board + ' ' + str(Index) + ' save success')
-    return True
-
 if not PTTCrawler.isLoginSuccess():
     PTTCrawler.Log('Login fail')
 else:
-    #PTTCrawler.setLogLevel(PTTCrawler.LogLevel_DEBUG)
+
     try:
-        while True:
-            ErrorCode, LastIndexList = PTTCrawler.getNewPostIndexList(Board, StartIndex)
-            if ErrorCode != PTTCrawler.Success:
-                PTTCrawler.Log('getNewPostIndexList error')
-                continue
-            if len(LastIndexList) != 0:
-                PTTCrawler.Log('Find new post')
-                for index in LastIndexList:
-                    SavePost(Board, index)
-            time.sleep(10)
-            
+    
+        PTTCrawler.crawlBoard(Board, PostCallBack)
+
     except KeyboardInterrupt:
         '''
         exc_info = sys.exc_info()
         traceback.print_exception(*exc_info)
         '''
-        PTTCrawler.Log('Interrupted by user')
+        PTTCrawler.Log('使用者中斷')
         PTTCrawler.logout()
         sys.exit()
     except EOFError:
