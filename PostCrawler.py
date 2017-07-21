@@ -21,12 +21,8 @@ try:
 except FileNotFoundError:
     ID = input('輸入使用者帳號: ')
     Password = getpass.getpass('輸入密碼: ')
-Board = sys.argv[1]
-
-print(Board + ' Post Crawler')
-
-if not os.path.exists(Board):
-    os.makedirs(Board)
+    
+BoardList = ['C_Chat', 'Hunter', 'sex', 'WomenTalk', 'Gossiping']
 
 PTTCrawler = PTT.Crawler(ID, Password, True)
 
@@ -42,18 +38,21 @@ def PostCallBack(Post):
     f.write(Post.getPostContent())
     f.close()
     
-    f = open(Post.getPostBoard() + '/' + Post.getPostID() + '/PushList.txt', 'w', encoding='utf-8-sig')
-    for Push in Post.getPushList():
-        f.write(str(Push.getPushType()) + ' ' + Push.getPushContent() + '\r\n')
-    f.close()
+    if len(Post.getPushList()) != 0:
+        f = open(Post.getPostBoard() + '/' + Post.getPostID() + '/PushList.txt', 'w', encoding='utf-8-sig')
+        for Push in Post.getPushList():
+            f.write(str(Push.getPushType()) + ' ' + Push.getPushContent() + '\r\n')
+        f.close()
     
 if not PTTCrawler.isLoginSuccess():
     PTTCrawler.Log('Login fail')
 else:
 
     try:
-    
-        PTTCrawler.crawlBoard(Board, PostCallBack)
+        for Board in BoardList:
+            if not os.path.exists(Board):
+                os.makedirs(Board)
+            PTTCrawler.crawlBoard(Board, PostCallBack)
 
     except KeyboardInterrupt:
         '''
